@@ -1,4 +1,5 @@
 import tensorflow as tf
+from utils import *
 
 class Encoder(tf.keras.Model):
     '''
@@ -18,19 +19,19 @@ class Encoder(tf.keras.Model):
     '''
     def __init__(self, adjA, in_dim, hid_dim, out_dim):
         super(Encoder, self).__init__()
-        self.adjA = tf.Variable(initial_value = adjA, trainable = True)
+        self.adjA = tf.Variable(initial_value = adjA, trainable = True, name = "adjacency_matrix")
         #self.Wa = tf.Variable(np.zeros(), trainable = True)
 
-        self.fc1 = tf.keras.layers.Dense(hid_dim, activation= 'relu')
-        self.fc2 = tf.keras.layers.Dense(out_dim)
+        self.fc1 = tf.keras.layers.Dense(hid_dim, activation= 'relu', name = "encoder-fc1")
+        self.fc2 = tf.keras.layers.Dense(out_dim, name = "encoder-fc2")
 
     def call(self, inputs):
         '''Forward process of neural network'''
         #calculate I - A^T
-        I_adjA = identity_transpose(self.adjA)
-        hidden = self.fc1(inputs)
-        outputs = self.fc2(hidden)
-        logits = tf.matmul(I_adjA, outputs)
+        I_adjA = identity_transpose(self.adjA) #[d, d]
+        hidden = self.fc1(inputs) #[n, hid_dim]
+        outputs = self.fc2(hidden) #[n, d]
+        logits = tf.squeeze(tf.matmul(I_adjA, tf.expand_dims(outputs, 2))) #[d ,d] * [n, d, 1]
         return outputs, logits, self.adjA
 
 
@@ -47,14 +48,14 @@ class Decoder(tf.keras.Model):
     '''
     def __init__(self, in_dim, hid_dim, out_dim):
         super(Decoder, self).__init__()
-        self.fc1 = tf.keras.layers.Dense(hid_dim, activation = 'relu')
-        self.fc2 = tf.keras.layers.Dense(out_dim)
+        self.fc1 = tf.keras.layers.Dense(hid_dim, activation = 'relu', name = "decoder-fc1")
+        self.fc2 = tf.keras.layers.Dense(out_dim, name = "decoder-fc2")
 
     def call(self, z_inputs,  adjA):
 
         #calculate (I - A^T)^(-1)
-        I_adjA = identity_transpose(adjA)
-        z = tf.matmul(I_adjA, z_inputs)
+        I_adjA = identity_transpose(adjA) #[d, d]
+        z = tf.squeeze(tf.matmul(I_adjA, tf.expand_dims(z_inputs, 2))) #[d, d] * [n, d, 1]
 
         hidden = self.fc1(z)
         outputs = self.fc2(hidden)
