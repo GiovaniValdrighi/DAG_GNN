@@ -23,7 +23,7 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
         MAX_LR = 1e-2
         MIN_LR = 1e-4
         
-        new_lr = / (np.log10(rho) + 1e-10)
+        new_lr = 1e-3/ (np.log10(rho) + 1e-10)
         lr = min(MAX_LR, max(MIN_LR, new_lr)) #if new_lr is inside limits, use it
         
         #update LR
