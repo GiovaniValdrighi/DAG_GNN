@@ -40,15 +40,14 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
         optimizer, lr = update_optimizer(optimizer, rho)
         
         for epoch in range(n_epochs):
-            for batch_id, batch_data in enumerate(train_loader):
-                #passing through neural network
-                en_outputs, logits, adjA, z, de_outputs = vae(batch_data)
-                
+            for (x, y) in train_loader:
                 #eval loss and compute gradients
                 with tf.GradientTape() as tape:
                     tape.watch(vae.trainable_variables)
+                    #passing through neural network
+                    en_outputs, logits, adjA, z, de_outputs = vae(x)
                     #calculate loss
-                    loss = vae._loss(adjA, logits, decoder_out, batch_data, rho, alpha)
+                    loss = vae._loss(adjA, logits, de_outputs, y, rho, alpha, lambda1)
                 gradients = tape.gradient(loss, vae.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, vae.trainable_variables))
             
@@ -56,11 +55,11 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
             if epoch % test_freq == 0:
                 start_time = time.time()
                 mean = tf.keras.metrics.Mean()
-                for batch_id, batch_data in enumarete(test_loader):
+                for (x, y) in test_loader:
                     #passing through neural network
-                    en_outputs, logits, adjA, z, de_outputs = vae(batch_data)
+                    en_outputs, logits, adjA, z, de_outputs = vae(x)
                     #calculate loss
-                    mean(vae._loss(adjA, logits, decoder_out, batch_data))
+                    mean(vae._loss(adjA, logits, de_outputs, y, rho, alpha, lambda1))
             
                 if verbose:
                     print("Finished epoch %d with mean test loss of %.3f and with %.3f seconds"
@@ -81,7 +80,7 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
     train_loader, test_loader = data_loader(data, test_size)
     
     #setup of neural networks
-    new_adj = np.zeros((n_variables, n_variables))
+    new_adj = np.zeros((n_variables, n_variables)).astype(np.float32)
     vae = DAG_GNN_VAE(new_adj, n_variables, hid_dim, n_variables)
     optimizer = tf.keras.optimizers.Adam(1e-3)
     
@@ -91,7 +90,7 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
             print("Started %d iteration."%(ind))
         while rho < rho_max:
             A_est = train(optimizer, rho, alpha) 
-            h_new = _h(A_est)
+            h_new = h_eval(A_est, n_variables)
                 
             #Update constraint parameter rho
             if h_new > 0.25 * h:
@@ -110,6 +109,7 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
             break
     
     #Applyng threshold
-    A_est[A_est < A_threshold] = 0
-    return A_est
+    G_est = A_est.numpy()
+    G_est[G_est < threshold] = 0
+    return G_est
         

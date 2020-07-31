@@ -80,6 +80,7 @@ class DAG_GNN_VAE(tf.keras.Model):
     '''
     def __init__(self, adjA, in_dim, hid_dim, out_dim):
         super(DAG_GNN_VAE, self).__init__()
+        self.n_variables = in_dim
         self.encoder = Encoder(adjA, in_dim, hid_dim, out_dim)
         self.decoder = Decoder(in_dim, hid_dim, out_dim)
     
@@ -88,18 +89,18 @@ class DAG_GNN_VAE(tf.keras.Model):
         z, de_outputs = self.decoder(logits, new_adjA)
         return en_outputs, logits, new_adjA, z, de_outputs
         
-    def _h(A):
+    def _h(self, A):
         '''Calculate the constraint of A ensure that it's a DAG'''
         #(Yu et al. 2019 DAG-GNN)
         # h(w) = tr[(I + kA*A)^n_variables] - n_variables
-        M = tf.eye(n_variables, num_columns = n_variables) + A/n_variables
+        M = tf.eye(self.n_variables, num_columns = self.n_variables) + A/self.n_variables
         E = M
-        for _ in range(n_variables - 2):
+        for _ in range(self.n_variables - 2):
             E = tf.linalg.matmul(E, M)
-        h = tf.math.reduce_sum(tf.transpose(E) * M) - n_variables
+        h = tf.math.reduce_sum(tf.transpose(E) * M) - self.n_variables
         return h
     
-    def _loss(A, logits, X, Y, rho, alpha):
+    def _loss(self, A, logits, X, Y, rho, alpha, lambda1):
         '''
         Function that evaluate the model loss
         loss = kl loss + nll loss + dag constraint + l1 reg + l2 reg
@@ -110,13 +111,13 @@ class DAG_GNN_VAE(tf.keras.Model):
         h_loss = 0.5 * rho * h * h + alpha * h
         
         #KL divergence
-        kl_loss = tf.sum(tf.pow(logits, 2) / ( 2 * logits.shape[0]))
+        kl_loss = tf.math.reduce_sum(tf.pow(logits, 2) / ( 2 * logits.shape[0]))
         
         #negative likelihood loss
-        nll_loss = tf.sum(tf.pow(X - Y, 2) / (2 * n_variables))
+        nll_loss = tf.math.reduce_sum(tf.pow(X - Y, 2) / (2 * self.n_variables))
         
         #L1 penalization
-        l1_loss = lambda1 * tf.sum(tf.abs(A))
+        l1_loss = lambda1 * tf.math.reduce_sum(tf.abs(A))
         
         #diagonal penalization
         diag_loss = 100 * tf.linalg.trace(A * A)

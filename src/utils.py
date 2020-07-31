@@ -24,7 +24,7 @@ def generate_data(n_samples, n_variables, degree):
     '''Simulate a sample matrix of size [n_samples, n_variables]'''
     G = simulate_dag(n_variables, degree)
     X = simulate_nonlinear_sem(G, n_samples)
-    return X.astype(np.float32)
+    return X.astype(np.float32), G
 
 def simulate_dag(d, s0):
     """Simulate random DAG with some expected number of edges.
@@ -87,3 +87,14 @@ def simulate_nonlinear_sem(B, n, noise_scale=None):
         parents = G.neighbors(j)
         X[:, j] = _simulate_single_equation(X[:, list(parents)], scale_vec[j])
     return X
+
+def h_eval(A, n_variables):
+    '''Calculate the constraint of A ensure that it's a DAG'''
+    #(Yu et al. 2019 DAG-GNN)
+    # h(w) = tr[(I + kA*A)^n_variables] - n_variables
+    M = tf.eye(n_variables, num_columns = n_variables) + A/n_variables
+    E = M
+    for _ in range(n_variables - 2):
+        E = tf.linalg.matmul(E, M)
+    h = tf.math.reduce_sum(tf.transpose(E) * M) - n_variables
+    return h
