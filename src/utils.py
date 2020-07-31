@@ -2,6 +2,7 @@ import tensorflow as tf
 import networkx as nx
 from scipy.special import expit as sigmoid
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 def identity_transpose(A):
     '''Calculate (I - A^T)'''
@@ -11,10 +12,11 @@ def identity_transpose_inverse(A):
     '''Calculate (I - A^T)^(-1)'''
     return tf.linalg.inv(identity_transpose(A))
 
-def data_loader(X, batch_size = 100):
+def data_loader(X, test_size = 0.2, batch_size = 100):
     '''Setup train loader and test loader for dataset X with bach_size'''
-    train_dataset = tf.data.Dataset.from_tensor_slices((X, X)).batch(batch_size, drop_remainder = True)
-    test_dataset = tf.data.Dataset.from_tensor_slices((X, X)).batch(batch_size, drop_remainder = True)
+    x_train, x_test = train_test_split(X, test_size = test_size, shuffle = True)
+    train_dataset = tf.data.Dataset.from_tensor_slices((x_train, x_train)).batch(batch_size, drop_remainder = True)
+    test_dataset = tf.data.Dataset.from_tensor_slices((x_test, x_test)).batch(batch_size, drop_remainder = True)
     
     return train_dataset, test_dataset
 

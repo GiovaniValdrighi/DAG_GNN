@@ -2,8 +2,9 @@ import tensorflow as tf
 import numpy as np
 from utils import *
 from model import *
+import time
 
-def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rho_max = 10e20, max_iter = 10e8, n_epochs = 20):
+def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rho_max = 10e20, max_iter = 10e8, n_epochs = 20, test_freq = 5,verbose = False):
     '''
     Function that apply the DAG GNN method to estimate a DAG
     
@@ -50,8 +51,23 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
                     loss = vae._loss(adjA, logits, decoder_out, batch_data)
                 gradients = tape.gradient(loss, vae.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, vae.trainable_variables))
-                
-                
+            
+            #run model with test_data
+            if epoch % test_freq == 0:
+                start_time = time.time()
+                mean = tf.keras.metrics.Mean()
+                for batch_id, batch_data in enumarete(test_loader):
+                    #passing through neural network
+                    en_outputs, logits, adjA, z, de_outputs = vae(batch_data)
+                    #calculate loss
+                    mean(vae._loss(adjA, logits, decoder_out, batch_data))
+            
+                if verbose:
+                    print("Finished epoch %d with mean test loss of %.3f and with %.3f seconds"
+                          %(epoch, mean.result().numpy(), time.time() - start_time))
+        if verbose:
+            print("Finished optimization with constraint parameter rho.")
+            
         return adjA
     
     
@@ -71,6 +87,8 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
     
     for _ in range(int(max_iter)):
         h_new = None
+        if verbose:
+            print("Started %d iteration."%(max_iter))
         while rho < rho_max:
             A_est = train() 
             h_new = _h(A_est)
@@ -81,6 +99,8 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
             else:
                 break
         
+        if verbose:
+            print("Finished optimization with parameter constraint alpha, final rho: %d"%(rho))
         #Ascent alpha
         h = h_new    
         alpha += rho * h
