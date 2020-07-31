@@ -24,7 +24,7 @@ def generate_data(n_samples, n_variables, degree):
     '''Simulate a sample matrix of size [n_samples, n_variables]'''
     G = simulate_dag(n_variables, degree)
     X = simulate_nonlinear_sem(G, n_samples)
-    return X
+    return X.astype(np.float32)
 
 def simulate_dag(d, s0):
     """Simulate random DAG with some expected number of edges.

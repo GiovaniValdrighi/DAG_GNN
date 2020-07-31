@@ -4,7 +4,7 @@ from utils import *
 from model import *
 import time
 
-def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rho_max = 10e20, max_iter = 10e8, n_epochs = 20, test_freq = 5,verbose = False):
+def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rho_max = 10e20, max_iter = 10e8, n_epochs = 20, test_size = 0.2, test_freq = 5,verbose = False):
     '''
     Function that apply the DAG GNN method to estimate a DAG
     
@@ -21,7 +21,7 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
         A_est (numpy.matrix): [n_variables, n_variables] estimated graph
     '''
     
-    def update_optmizer(optimizer, rho):
+    def update_optimizer(optimizer, rho):
         '''related LR to rho, whenever rho gets big, reduce LR proportionally'''
         MAX_LR = 1e-2
         MIN_LR = 1e-4
@@ -31,13 +31,13 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
         
         #update LR
         optimizer.lr = lr
-        return optmizer, lr
+        return optimizer, lr
     
-    def train(optimizer):
+    def train(optimizer, rho, alpha):
         '''Model training'''
         
-        #update optmizer
-        optimizer, lr = update_optmizer(optimizer, rho)
+        #update optimizer
+        optimizer, lr = update_optimizer(optimizer, rho)
         
         for epoch in range(n_epochs):
             for batch_id, batch_data in enumerate(train_loader):
@@ -48,7 +48,7 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
                 with tf.GradientTape() as tape:
                     tape.watch(vae.trainable_variables)
                     #calculate loss
-                    loss = vae._loss(adjA, logits, decoder_out, batch_data)
+                    loss = vae._loss(adjA, logits, decoder_out, batch_data, rho, alpha)
                 gradients = tape.gradient(loss, vae.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, vae.trainable_variables))
             
@@ -78,19 +78,19 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
     n_variables = data.shape[1]
     rho, alpha, h = 1., 0., np.Inf
     
-    train_loader, test_loader = data_loader(data)
+    train_loader, test_loader = data_loader(data, test_size)
     
     #setup of neural networks
     new_adj = np.zeros((n_variables, n_variables))
     vae = DAG_GNN_VAE(new_adj, n_variables, hid_dim, n_variables)
     optimizer = tf.keras.optimizers.Adam(1e-3)
     
-    for _ in range(int(max_iter)):
+    for ind in range(int(max_iter)):
         h_new = None
         if verbose:
-            print("Started %d iteration."%(max_iter))
+            print("Started %d iteration."%(ind))
         while rho < rho_max:
-            A_est = train() 
+            A_est = train(optimizer, rho, alpha) 
             h_new = _h(A_est)
                 
             #Update constraint parameter rho

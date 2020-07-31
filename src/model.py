@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from utils import *
 
 class Encoder(tf.keras.Model):
@@ -98,7 +99,7 @@ class DAG_GNN_VAE(tf.keras.Model):
         h = tf.math.reduce_sum(tf.transpose(E) * M) - n_variables
         return h
     
-    def _loss(A, logits, X, Y):
+    def _loss(A, logits, X, Y, rho, alpha):
         '''
         Function that evaluate the model loss
         loss = kl loss + nll loss + dag constraint + l1 reg + l2 reg
