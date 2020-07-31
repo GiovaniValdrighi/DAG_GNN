@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+from utils import *
+from model import *
 
 def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rho_max = 10e20, max_iter = 10e8, n_epochs = 20):
     '''
@@ -27,26 +29,27 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
         lr = min(MAX_LR, max(MIN_LR, new_lr)) #if new_lr is inside limits, use it
         
         #update LR
-        
+        optimizer.lr = lr
         return optmizer, lr
     
     def train(optimizer):
         '''Model training'''
-        #update optmizer
         
+        #update optmizer
         optimizer, lr = update_optmizer(optimizer, rho)
         
         for epoch in range(n_epochs):
             for batch_id, batch_data in enumerate(train_loader):
-                
                 #passing through neural network
                 en_outputs, logits, adjA, z, de_outputs = vae(batch_data)
+                
+                #eval loss and compute gradients
                 with tf.GradientTape() as tape:
                     tape.watch(vae.trainable_variables)
                     #calculate loss
                     loss = vae._loss(adjA, logits, decoder_out, batch_data)
-                
-                
+                gradients = tape.gradient(loss, vae.trainable_variables)
+                optimizer.apply_gradients(zip(gradients, vae.trainable_variables))
                 
                 
         return adjA
@@ -59,12 +62,12 @@ def dag_gnn(data, hid_dim = 20, h_tol = 1e-8, threshold = 0.3, lambda1 = 0.1, rh
     n_variables = data.shape[1]
     rho, alpha, h = 1., 0., np.Inf
     
-    train_loader, test_loader = setup_data_loader(data)
+    train_loader, test_loader = data_loader(data)
     
     #setup of neural networks
     new_adj = np.zeros((n_variables, n_variables))
     vae = DAG_GNN_VAE(new_adj, n_variables, hid_dim, n_variables)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+    optimizer = tf.keras.optimizers.Adam(1e-3)
     
     for _ in range(int(max_iter)):
         h_new = None

@@ -103,6 +103,7 @@ class DAG_GNN_VAE(tf.keras.Model):
         Function that evaluate the model loss
         loss = kl loss + nll loss + dag constraint + l1 reg + l2 reg
         '''
+        
         # h constraint loss
         h = self._h(A)
         h_loss = 0.5 * rho * h * h + alpha * h
